@@ -45,7 +45,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="use a local Parquet file without downloading",
     )
-
+    parser.add_argument(
+        "--zones-only",
+        action="store_true",
+        help="load taxi zones without loading trips",
+)
     args = parser.parse_args(argv)
 
     if not args.data_dir.is_absolute():
@@ -66,6 +70,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
+
 def run(args: argparse.Namespace) -> None:
     start_time = perf_counter()
 
@@ -76,16 +81,29 @@ def run(args: argparse.Namespace) -> None:
         / "taxi_zone_lookup.csv"
     )
 
+    zones = extract_zones(zones_path)
+
+    # Load only taxi zones when --zones-only is specified.
+    if args.zones_only:
+        with psycopg.connect(connect_timeout=10) as conn:
+            inserted_zones = load_zones(conn, zones)
+
+        elapsed = perf_counter() - start_time
+
+        print("\n========== ZONE LOAD RESULTS ==========")
+        print(f"Source zones:         {zones.height:,}")
+        print(f"Loaded/updated zones:  {inserted_zones:,}")
+        print(f"Elapsed time:          {elapsed:.2f} seconds")
+        print("=======================================")
+        return
+
     source_trips = extract_trips(
         args.source,
         month=args.month,
         download=args.download,
     )
 
-    zones = extract_zones(zones_path)
-
     accepted_trips = clean_trips(source_trips)
-
     rejected_count = source_trips.height - accepted_trips.height
 
     # Both loads run in one database transaction.
@@ -96,14 +114,15 @@ def run(args: argparse.Namespace) -> None:
     elapsed = perf_counter() - start_time
 
     print("\n========== ETL RESULTS ==========")
-    print(f"Source trips:       {source_trips.height:,}")
-    print(f"Accepted trips:     {accepted_trips.height:,}")
-    print(f"Rejected trips:     {rejected_count:,}")
-    print(f"Loaded trips:       {inserted_trips:,}")
-    print(f"Source zones:       {zones.height:,}")
+    print(f"Source trips:         {source_trips.height:,}")
+    print(f"Accepted trips:       {accepted_trips.height:,}")
+    print(f"Rejected trips:       {rejected_count:,}")
+    print(f"Loaded trips:         {inserted_trips:,}")
+    print(f"Source zones:         {zones.height:,}")
     print(f"Loaded/updated zones: {inserted_zones:,}")
-    print(f"Elapsed time:       {elapsed:.2f} seconds")
-    print("================================")
+    print(f"Elapsed time:         {elapsed:.2f} seconds")
+    print("=================================")
+
 
 
 def main() -> int:

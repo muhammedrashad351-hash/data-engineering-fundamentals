@@ -44,6 +44,8 @@ def load_trips(conn: Connection, trips: pl.DataFrame) -> int:
                 copy.write_row(row)
 
     return trips.height
+
+
 def load_zones(conn: Connection, zones: pl.DataFrame) -> int:
     """Load taxi zones, updating existing location records safely."""
 
