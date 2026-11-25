@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+.pytest_cache/
+.idea/
+
+/data/raw/yellow_taxi/*
+!/data/raw/yellow_taxi/.gitkeep
+/data/raw/reference/*
+!/data/raw/reference/.gitkeep
